@@ -67,13 +67,13 @@ def extract_by_fps_fast(video_path: str, target_fps: int = 1):
 
 
 def extract_uniform_frames(video_path: str, num_frames: int = 32):
-    """从视频中均匀采样固定数量的帧"""
+    """Uniformly sample a fixed number of frames from a video."""
     video = cv2.VideoCapture(video_path)
     total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
     if total_frames <= 0:
         video.release()
         return []
-    # 均匀采样帧索引
+    # Uniformly sampled frame indices
     if total_frames <= num_frames:
         indices = list(range(total_frames))
     else:
@@ -96,7 +96,7 @@ def encode_image_to_jpeg_bytes(frame) -> bytes:
 
 
 def resize_frame_if_needed(frame, max_size: int = 1500):
-    """将帧的最长边限制在 max_size 像素内（Claude 多图请求限制 2000 像素）"""
+    """Clamp the longest edge of a frame to max_size pixels."""
     h, w = frame.shape[:2]
     if max(h, w) <= max_size:
         return frame
@@ -106,17 +106,17 @@ def resize_frame_if_needed(frame, max_size: int = 1500):
 
 
 def resize_base64_image_if_needed(data_url: str, max_size: int) -> str:
-    """将 base64 data URL 图片的最长边限制在 max_size 像素内"""
+    """Clamp the longest edge of a base64 data URL image to max_size pixels."""
     if not data_url.startswith("data:") or ";base64," not in data_url:
         return data_url
     _, encoded = data_url.split(";base64,", 1)
     image_bytes = base64.b64decode(encoded)
-    # 解码为 numpy array
+    # Decode into a numpy array
     nparr = np.frombuffer(image_bytes, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if frame is None:
         return data_url
-    # 检查是否需要 resize
+    # Check whether resizing is needed
     h, w = frame.shape[:2]
     if max(h, w) <= max_size:
         return data_url
@@ -124,7 +124,7 @@ def resize_base64_image_if_needed(data_url: str, max_size: int) -> str:
     scale = max_size / max(h, w)
     new_w, new_h = int(w * scale), int(h * scale)
     resized = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
-    # 重新编码
+    # Re-encode the resized image
     _, buffer = cv2.imencode(".jpg", resized)
     new_base64 = base64.b64encode(buffer.tobytes()).decode("utf-8")
     return f"data:image/jpeg;base64,{new_base64}"
@@ -318,11 +318,11 @@ def post_process_raw_content(raw_content: str) -> str:
 
 
 def is_valid_html_output(code: str) -> bool:
-    """检查输出是否是有效的 HTML 代码"""
+    """Check whether the output looks like valid HTML."""
     if not code or len(code) < 10:
         return False
     code_lower = code.lower()
-    # 必须包含基本 HTML 结构
+    # The output must include the basic HTML structure
     if "<html" not in code_lower and "<!doctype" not in code_lower:
         return False
     if "<body" not in code_lower and "<head" not in code_lower:
@@ -449,20 +449,20 @@ def infer_raw_content(
         return raw_content
 
     if "gpt" in model.lower():
-        # GPT 模型不支持原生视频输入，使用抽帧图片方式
+        # GPT models do not support native video input, so use sampled frames.
         print(f"使用 GPT 系列模型（抽帧输入）: {model}")
         user_content = [{"type": "text", "text": REPLICATE_VIDEO_PROMPT}]
-        # 添加视频帧作为图片
+        # Add sampled video frames as images
         for frame in frames:
             user_content.append({
                 "type": "image_url",
                 "image_url": {"url": f"data:image/jpeg;base64,{encode_image_to_base64(frame)}"}
             })
-        # 添加图片资源
+        # Add extra image resources
         if image_resource_content:
             user_content.extend(image_resource_content)
 
-        # gpt-5.2 使用 reasoning_effort，不支持 temperature/top_p
+        # gpt-5.2 uses reasoning_effort and does not support temperature/top_p.
         if model == "gpt-5.2":
             response = client.chat.completions.create(
                 model=api_model,
@@ -492,11 +492,11 @@ def infer_raw_content(
         return raw_content
 
     if "claude" in model.lower():
-        # Claude 模型不支持原生视频输入，使用抽帧图片方式（通过 OpenAI 兼容 API）
+        # Claude models do not support native video input, so use sampled frames through the OpenAI-compatible API.
         print(f"使用 Claude 系列模型（抽帧输入）: {model}")
         user_content = [{"type": "text", "text": REPLICATE_VIDEO_CLAUDE_PROMPT}]
 
-        # Claude API 最多支持 100 张图片，超过则均匀采样
+        # Claude accepts at most 100 images, so downsample uniformly if needed.
         extra_image_count = sum(1 for item in (image_resource_content or []) if item.get("type") == "image_url")
         max_frames_for_claude = 100 - extra_image_count
         if len(frames) > max_frames_for_claude:
@@ -504,20 +504,20 @@ def infer_raw_content(
             frames = [frames[int(i * step)] for i in range(max_frames_for_claude)]
             print(f"  帧数超限，均匀采样到 {len(frames)} 帧")
 
-        # 计算总图片数量，决定 resize 尺寸
-        # Claude: <=20 张图片最大 8000px，>20 张图片最大 2000px
+        # Compute the total image count to decide the resize limit.
+        # Claude allows up to 8000px for <=20 images and 2000px otherwise.
         total_image_count = len(frames) + extra_image_count
         max_size = 2000 if total_image_count > 20 else 8000
         print(f"  图片数量: {total_image_count} (帧={len(frames)}, 额外={extra_image_count}), max_size={max_size}")
 
-        # 添加视频帧作为图片
+        # Add sampled video frames as images
         for frame in frames:
             resized_frame = resize_frame_if_needed(frame, max_size=max_size)
             user_content.append({
                 "type": "image_url",
                 "image_url": {"url": f"data:image/jpeg;base64,{encode_image_to_base64(resized_frame)}"}
             })
-        # 添加图片资源（也需要 resize）
+        # Add extra image resources, resizing them as well
         for item in image_resource_content or []:
             if item.get("type") == "text":
                 user_content.append(item)
@@ -534,7 +534,7 @@ def infer_raw_content(
             messages=[{"role": "user", "content": user_content}],
             max_tokens=generation_params["max_tokens"],
             temperature=generation_params["temperature"],
-            # Claude (Bedrock) 不支持同时设置 temperature 和 top_p
+            # Claude (Bedrock) does not support setting temperature and top_p together.
             stream=True,
         )
         raw_content = ""
@@ -744,10 +744,10 @@ def run(args):
         if not use_native_video_input:
             model_lower = args.model.lower()
             if "gpt" in model_lower or "claude" in model_lower:
-                # GPT/Claude 模型：均匀采样固定 32 帧 + k 张额外图片素材
+                # GPT/Claude models: uniformly sample 32 frames plus k extra images.
                 frames = extract_uniform_frames(video_path, num_frames=32)
             else:
-                # 其他模型：按 fps 抽帧
+                # Other models: sample frames according to fps.
                 frames = extract_by_fps_fast(video_path, args.fps)
                 if len(frames) > args.max_frames:
                     step = len(frames) / args.max_frames
@@ -758,7 +758,7 @@ def run(args):
 
         client = create_model_client(args.model)
 
-        # 重试机制
+        # Retry loop
         max_retries = getattr(args, 'max_retries', DEFAULT_MAX_RETRIES)
         retry_delay = getattr(args, 'retry_delay', DEFAULT_RETRY_DELAY)
         code = None
@@ -777,7 +777,7 @@ def run(args):
                 )
                 code = post_process_raw_content(raw_content)
 
-                # 检查输出是否有效
+                # Check whether the output is valid
                 if is_valid_html_output(code):
                     if attempt > 1:
                         print(f"\n✅ 第 {attempt} 次重试成功")
@@ -792,7 +792,7 @@ def run(args):
             except Exception as e:
                 last_error = str(e)
                 print(f"\n⚠️  第 {attempt}/{max_retries} 次尝试失败: {last_error}")
-                # 打印完整错误信息
+                # Print the full error details
                 if hasattr(e, 'response'):
                     print(f"   完整响应: {e.response}")
                 if hasattr(e, 'body'):
@@ -802,7 +802,7 @@ def run(args):
                     print(f"   {retry_delay} 秒后重试...")
                     time.sleep(retry_delay)
 
-        # 所有重试都失败
+        # All retries failed
         if not code or not is_valid_html_output(code):
             error_msg = f"所有 {max_retries} 次尝试均失败: {last_error}"
             print(f"\n❌ {error_msg}")

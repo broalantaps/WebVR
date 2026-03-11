@@ -74,7 +74,7 @@ def _load_rubric_map(rubric_jsonl: Path) -> dict[str, Any]:
                 invalid_lines += 1
                 continue
 
-            # 支持 idx 或 line_index 字段
+            # Support either idx or line_index
             idx = str(row.get("idx") or row.get("line_index", "")).strip()
             rubric = row.get("rubric")
             if not idx:
@@ -160,7 +160,7 @@ def _infer_text(
             suffix = video_path.suffix.lower()
             mime_type = VIDEO_MIME_TYPES.get(suffix, "video/webm")
             # video_size_mb = len(video_bytes) / (1024 * 1024)
-            # print(f"    📹 Gemini 视频输入: {video_path.name} ({video_size_mb:.2f} MB, {mime_type})")
+            # print(f"    📹 Gemini video input: {video_path.name} ({video_size_mb:.2f} MB, {mime_type})")
             contents.append(types.Part.from_bytes(data=video_bytes, mime_type=mime_type))
         contents.append(types.Part.from_text(text=user_prompt))
         stream = client.models.generate_content_stream(
@@ -183,7 +183,7 @@ def _infer_text(
         mime_type = VIDEO_MIME_TYPES.get(suffix, "video/webm")
         video_bytes = video_path.read_bytes()
         # video_size_mb = len(video_bytes) / (1024 * 1024)
-        # print(f"    📹 Kimi 视频输入: {video_path.name} ({video_size_mb:.2f} MB, {mime_type})")
+        # print(f"    📹 Kimi video input: {video_path.name} ({video_size_mb:.2f} MB, {mime_type})")
         video_base64 = base64.b64encode(video_bytes).decode("utf-8")
         user_content = [
             {"type": "text", "text": user_prompt},
@@ -201,7 +201,7 @@ def _infer_text(
         )
         raw = ""
         for chunk in response:
-            # 正确处理 OpenAI 流式响应格式
+            # Correctly handle the OpenAI streaming response format
             if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
                 raw += chunk.choices[0].delta.content
         return raw
@@ -280,7 +280,7 @@ def _parse_json_payload(text: str) -> Any:
 
 
 def _extract_evaluation_content(text: str) -> str:
-    """提取 <evaluation>...</evaluation> 标签内的内容"""
+    """Extract the content inside <evaluation>...</evaluation> tags."""
     import re
     match = re.search(r"<evaluation>\s*(.*?)\s*</evaluation>", text, re.DOTALL | re.IGNORECASE)
     if match:
@@ -396,7 +396,7 @@ def _infer_category_from_check_id(check_id: str) -> str | None:
 
 
 def _extract_checks_from_video_output(parsed: Any, prefix: str = "") -> list[dict]:
-    """从视频模式的分类输出中递归提取所有 check 项"""
+    """Recursively extract all checks from categorized video-mode output."""
     checks = []
     if isinstance(parsed, list):
         for index, item in enumerate(parsed, start=1):
@@ -448,7 +448,7 @@ def _normalize_result(parsed: Any, rubric: Any) -> dict[str, Any]:
                 }
             )
 
-    # 视频模式：从分类结构中提取 checks
+    # Video mode: extract checks from the categorized structure
     if not normalized_checks and isinstance(parsed, dict):
         video_checks = _extract_checks_from_video_output(parsed)
         if video_checks:
@@ -555,7 +555,7 @@ def _evaluate_single_html(
         if candidate.exists():
             video_path = candidate
 
-    # video_only 模式必须有视频
+    # video_only mode requires an input video
     if video_only and video_path is None:
         video_dir = Path(args.video_dir) if getattr(args, "video_dir", None) else html_path.parent
         expected_path = video_dir / f"{idx}_recorded.webm"
@@ -593,7 +593,7 @@ def _evaluate_single_html(
                     video_path=video_path,
                 )
                 print(raw_response)
-                # 如果使用视频模式，先提取 <evaluation> 标签内容
+                # In video mode, extract the <evaluation> payload first
                 if video_path is not None:
                     raw_response = _extract_evaluation_content(raw_response)
                 parsed = _parse_json_payload(raw_response)
@@ -647,7 +647,7 @@ def _evaluate_single_html(
 
 
 def _generate_summary_from_existing(output_jsonl: Path, rubric_jsonl: Path, html_dir: Path, args):
-    """基于已有的 output_jsonl 文件生成 summary"""
+    """Generate a summary from an existing output_jsonl file."""
     if not output_jsonl.exists():
         raise FileNotFoundError(f"输出文件不存在: {output_jsonl}")
 
@@ -795,7 +795,7 @@ def run(args):
     rubric_jsonl = Path(args.rubric_jsonl).resolve()
     output_jsonl = Path(args.output_jsonl).resolve()
 
-    # summary_only 模式：直接基于现有结果生成 summary
+    # summary_only mode: generate the summary directly from existing results
     if getattr(args, "summary_only", False):
         _generate_summary_from_existing(output_jsonl, rubric_jsonl, html_dir, args)
         return
@@ -832,7 +832,7 @@ def run(args):
         use_video = getattr(args, "use_video", False)
         video_only = getattr(args, "video_only", False)
 
-        # 检查视频文件是否存在
+        # Check whether the video file exists
         video_path = None
         if use_video or video_only:
             video_dir = Path(args.video_dir) if getattr(args, "video_dir", None) else html_path.parent
@@ -844,7 +844,7 @@ def run(args):
         system_prompt = _build_system_prompt(rubric, use_v2=use_v2, use_video=(video_path is not None and not video_only), video_only=video_only)
         user_prompt = _build_user_prompt(html_code, rubric=rubric, use_v2=use_v2, use_video=(video_path is not None and not video_only), video_only=video_only)
 
-        # 确定 prompt 模式
+        # Determine the prompt mode
         if video_only:
             prompt_mode = "VIDEO_ONLY" if video_path else "VIDEO_ONLY (NO VIDEO FOUND!)"
         elif video_path:
@@ -875,7 +875,7 @@ def run(args):
         print("\n" + "=" * 60)
         print(f"USER PROMPT (length={len(user_prompt)}):")
         print("=" * 60)
-        # 只显示前 2000 字符
+        # Show only the first 2000 characters
         if len(user_prompt) > 2000:
             print(user_prompt[:2000])
             print(f"\n... [truncated, total {len(user_prompt)} chars]")
@@ -897,11 +897,11 @@ def run(args):
 
     pending_tasks: list[Path] = []
     task_rubrics: dict[str, Any] = {}
-    html_idx_set: set[str] = set()  # 记录 HTML 目录中的所有 idx
+    html_idx_set: set[str] = set()  # Track all idx values present in the HTML directory
 
     for rank, html_path in enumerate(html_paths, start=1):
         idx = _extract_idx_from_filename(html_path)
-        html_idx_set.add(idx)  # 记录所有 HTML 的 idx
+        html_idx_set.add(idx)  # Track every idx found in the HTML files
         if args.resume and idx in processed:
             print(f"[{rank}/{total_files}] skip idx={idx} (already processed)")
             skip_count += 1
@@ -977,7 +977,7 @@ def run(args):
                     fail_count += 1
                     print(f"[{completed}/{pending_total}] error idx={idx}")
 
-    # 处理 all_dataset 中存在但 HTML 目录中不存在的 idx，记为 0 分
+    # Handle idx values that exist in all_dataset but not in the HTML directory, assigning them a score of 0
     all_dataset_path = getattr(args, "all_dataset_path", None)
     if all_dataset_path and Path(all_dataset_path).exists():
         with open(all_dataset_path, "r", encoding="utf-8") as f:
@@ -986,10 +986,10 @@ def run(args):
 
         missing_html_count = 0
         for dataset_idx in sorted(all_dataset_idx_set, key=lambda x: (len(x), x)):
-            # 如果 HTML 目录中有这个 idx，跳过（不管是否已处理）
+            # Skip idx values that are already present in the HTML directory
             if dataset_idx in html_idx_set:
                 continue
-            # 这个 idx 在 all_dataset 中但 HTML 目录中不存在
+            # This idx exists in all_dataset but not in the HTML directory
             rubric = rubric_map.get(dataset_idx)
             total_criteria = _count_rubric_criteria(rubric) if rubric else 0
             row = {
