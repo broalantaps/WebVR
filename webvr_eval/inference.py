@@ -161,7 +161,7 @@ def build_image_resource_content(sample_id: str, sample_dir: str, image_urls):
 
     images_dir = os.path.join(sample_dir, "images")
     if not os.path.isdir(images_dir):
-        print(f"⚠️  样本 {sample_id} 缺少 images 目录，跳过图片资源注入")
+        print(f"⚠️  Sample {sample_id} is missing the images directory; skipping image resource injection")
         return []
 
     url_lines = [
@@ -173,14 +173,14 @@ def build_image_resource_content(sample_id: str, sample_dir: str, image_urls):
         url_lines.append(f"{index}. {url}")
         image_path = find_image_path_by_index(images_dir, index)
         if not image_path:
-            print(f"⚠️  样本 {sample_id} 缺少第 {index} 张图片文件，已跳过该 image_url 输入")
+            print(f"⚠️  Sample {sample_id} is missing image file #{index}; skipped this image_url input")
             continue
         extension = os.path.splitext(image_path)[1].lower()
         mime_type = IMAGE_MIME_TYPES.get(extension, "image/jpeg")
         with open(image_path, "rb") as image_file:
             image_bytes = image_file.read()
             if not image_bytes:
-                print(f"⚠️  样本 {sample_id} 第 {index} 张图片文件为空，已跳过")
+                print(f"⚠️  Sample {sample_id} image file #{index} is empty; skipped")
                 continue
             image_base64 = base64.b64encode(image_bytes).decode("utf-8")
         image_content.append(
@@ -255,7 +255,7 @@ def get_api_model_name(model: str) -> str:
 def get_openai_api_key() -> str:
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        raise RuntimeError("缺少环境变量 OPENAI_API_KEY")
+        raise RuntimeError("Missing environment variable OPENAI_API_KEY")
     return api_key
 
 
@@ -295,7 +295,7 @@ def load_generation_params(config_path: str, model: str):
     required_keys = ("temperature", "top_p", "max_tokens")
     missing_keys = [key for key in required_keys if key not in generation_params]
     if missing_keys:
-        raise ValueError(f"配置文件缺少必要字段: {missing_keys}")
+        raise ValueError(f"Configuration file is missing required fields: {missing_keys}")
 
     generation_params["max_tokens"] = int(generation_params["max_tokens"])
     generation_params["temperature"] = float(generation_params["temperature"])
@@ -344,7 +344,7 @@ def infer_raw_content(
 
     if "kimi" in model:
         if not video_path:
-            raise ValueError("kimi 系列模型需要提供 video_path")
+            raise ValueError("Kimi models require video_path")
         suffix = os.path.splitext(video_path)[1].lower()
         mime_type = VIDEO_MIME_TYPES.get(suffix, "video/mp4")
         video_base64 = encode_video_to_base64(video_path)
@@ -375,9 +375,9 @@ def infer_raw_content(
         return raw_content
 
     if "qwen" in model.lower() or "seed" in model.lower() or "ernie" in model.lower() or "glm" in model.lower():
-        print(f"使用 qwen/seed/ernie/glm 系列模型（原生视频输入）: {model}")
+        print(f"Using qwen/seed/ernie/glm model family (native video input): {model}")
         if not video_path:
-            raise ValueError("qwen/seed/ernie/glm 系列模型（原生视频输入）需要提供 video_path")
+            raise ValueError("qwen/seed/ernie/glm models with native video input require video_path")
         suffix = os.path.splitext(video_path)[1].lower()
         mime_type = VIDEO_MIME_TYPES.get(suffix, "video/mp4")
         video_base64 = encode_video_to_base64(video_path)
@@ -410,14 +410,14 @@ def infer_raw_content(
 
     if "gemini" in model:
         if not video_path:
-            raise ValueError("gemini 系列模型需要提供 video_path")
+            raise ValueError("Gemini models require video_path")
         video_suffix = os.path.splitext(video_path)[1].lower()
         video_mime_type = VIDEO_MIME_TYPES.get(video_suffix, "video/mp4")
         use_media_resolution = "gemini-3" in model.lower()
         with open(video_path, "rb") as video_file:
             video_bytes = video_file.read()
         if len(video_bytes) > 20 * 1024 * 1024:
-            print(f"⚠️  视频大小 {len(video_bytes) / 1024 / 1024:.2f}MB，Gemini inline video 可能失败")
+            print(f"⚠️  Video size is {len(video_bytes) / 1024 / 1024:.2f}MB; Gemini inline video may fail")
 
         video_part = types.Part(inline_data=types.Blob(data=video_bytes, mime_type=video_mime_type))
         video_part = apply_gemini_media_resolution(video_part, use_media_resolution)
@@ -450,7 +450,7 @@ def infer_raw_content(
 
     if "gpt" in model.lower():
         # GPT models do not support native video input, so use sampled frames.
-        print(f"使用 GPT 系列模型（抽帧输入）: {model}")
+        print(f"Using GPT model family (frame-based input): {model}")
         user_content = [{"type": "text", "text": REPLICATE_VIDEO_PROMPT}]
         # Add sampled video frames as images
         for frame in frames:
@@ -493,7 +493,7 @@ def infer_raw_content(
 
     if "claude" in model.lower():
         # Claude models do not support native video input, so use sampled frames through the OpenAI-compatible API.
-        print(f"使用 Claude 系列模型（抽帧输入）: {model}")
+        print(f"Using Claude model family (frame-based input): {model}")
         user_content = [{"type": "text", "text": REPLICATE_VIDEO_CLAUDE_PROMPT}]
 
         # Claude accepts at most 100 images, so downsample uniformly if needed.
@@ -502,13 +502,13 @@ def infer_raw_content(
         if len(frames) > max_frames_for_claude:
             step = len(frames) / max_frames_for_claude
             frames = [frames[int(i * step)] for i in range(max_frames_for_claude)]
-            print(f"  帧数超限，均匀采样到 {len(frames)} 帧")
+            print(f"  Frame count exceeded the limit; uniformly downsampled to {len(frames)} frames")
 
         # Compute the total image count to decide the resize limit.
         # Claude allows up to 8000px for <=20 images and 2000px otherwise.
         total_image_count = len(frames) + extra_image_count
         max_size = 2000 if total_image_count > 20 else 8000
-        print(f"  图片数量: {total_image_count} (帧={len(frames)}, 额外={extra_image_count}), max_size={max_size}")
+        print(f"  Image count: {total_image_count} (frames={len(frames)}, extra={extra_image_count}), max_size={max_size}")
 
         # Add sampled video frames as images
         for frame in frames:
@@ -577,13 +577,13 @@ def infer_raw_content(
 
 def validate_input_path(input_path: str) -> str:
     if not input_path:
-        raise ValueError("未提供输入路径")
+        raise ValueError("No input path was provided")
     if not os.path.exists(input_path):
-        raise FileNotFoundError(f"输入路径不存在: {input_path}")
+        raise FileNotFoundError(f"Input path does not exist: {input_path}")
     if os.path.isdir(input_path):
-        raise IsADirectoryError(f"路径是目录，请传入视频文件或 JSON 文件: {input_path}")
+        raise IsADirectoryError(f"Path is a directory; please provide a video file or JSON file: {input_path}")
     if not (is_video_file(input_path) or is_json_file(input_path)):
-        raise ValueError(f"仅支持视频文件或 JSON 文件输入: {input_path}")
+        raise ValueError(f"Only video files or JSON files are supported as input: {input_path}")
     return input_path
 
 
@@ -612,7 +612,7 @@ def collect_input_videos(input_path: str, limit: int = 0):
     with open(input_path, "r", encoding="utf-8") as json_file:
         data = json.load(json_file)
     if not isinstance(data, dict):
-        raise ValueError("JSON 输入必须是对象，且 key 为子目录 ID")
+        raise ValueError("JSON input must be an object whose keys are sample directory IDs")
 
     dataset_root = os.path.dirname(os.path.abspath(input_path))
     videos = []
@@ -622,11 +622,11 @@ def collect_input_videos(input_path: str, limit: int = 0):
     for sample_id in keys:
         sample_dir = os.path.join(dataset_root, str(sample_id))
         if not os.path.isdir(sample_dir):
-            print(f"⚠️  跳过 {sample_id}: 子目录不存在 {sample_dir}")
+            print(f"⚠️  Skipping {sample_id}: sample directory does not exist at {sample_dir}")
             continue
         video_path = find_video_in_sample_dir(sample_dir, str(sample_id))
         if not video_path:
-            print(f"⚠️  跳过 {sample_id}: 未找到视频文件")
+            print(f"⚠️  Skipping {sample_id}: no video file found")
             continue
         sample_meta = data.get(sample_id, {})
         image_urls = sample_meta.get("image_urls", []) if isinstance(sample_meta, dict) else []
@@ -640,7 +640,7 @@ def collect_input_videos(input_path: str, limit: int = 0):
         )
 
     if not videos:
-        raise RuntimeError("JSON 中没有匹配到可用视频")
+        raise RuntimeError("No usable videos matched the JSON input")
     return videos
 
 
@@ -658,7 +658,7 @@ def run(args):
     generation_params = load_generation_params(args.config, args.model)
     top_k_display = generation_params.get("top_k", "N/A")
     print(
-        "🧩 生成参数:"
+        "🧩 Generation parameters:"
         f" temperature={generation_params['temperature']},"
         f" top_p={generation_params['top_p']},"
         f" top_k={top_k_display},"
@@ -673,7 +673,7 @@ def run(args):
             model_name = args.model.replace("/", "_")
             output_dir = os.path.join(os.path.dirname(os.path.abspath(input_path)), f"formal_exp_outputs_{model_name}")
         os.makedirs(output_dir, exist_ok=True)
-        print(f"📁 批量模式输出目录: {output_dir}")
+        print(f"📁 Batch mode output directory: {output_dir}")
 
     if output_dir:
         log_root = output_dir
@@ -706,16 +706,16 @@ def run(args):
     }
     with open(run_log_path, "w", encoding="utf-8") as log_file:
         json.dump(run_log_payload, log_file, ensure_ascii=False, indent=2)
-    print(f"📝 运行参数日志已写入: {run_log_path}")
+    print(f"📝 Run configuration log written to: {run_log_path}")
 
     def process_item(item):
         sample_id = item["sample_id"]
         video_path = item["video_path"]
         sample_dir = item["sample_dir"]
         image_urls = item["image_urls"]
-        print(f"\n🎬 处理样本 {sample_id}: {video_path}")
+        print(f"\n🎬 Processing sample {sample_id}: {video_path}")
         print(
-            "⚙️ 推理参数:"
+            "⚙️ Inference parameters:"
             f" temperature={generation_params['temperature']},"
             f" top_p={generation_params['top_p']},"
             f" top_k={generation_params.get('top_k', 'N/A')},"
@@ -737,7 +737,7 @@ def run(args):
             if args.prompt_example_output:
                 with open(args.prompt_example_output, "w", encoding="utf-8") as output_file:
                     output_file.write(preview_text)
-                print(f"✅ Prompt 文本已写入: {args.prompt_example_output}")
+                print(f"✅ Prompt text written to: {args.prompt_example_output}")
             return {"preview_only": True, "sample_id": sample_id}
 
         frames = []
@@ -753,7 +753,7 @@ def run(args):
                     step = len(frames) / args.max_frames
                     frames = [frames[int(i * step)] for i in range(args.max_frames)]
             if not frames:
-                print("⚠️  跳过: 无法抽帧")
+                print("⚠️  Skipping: failed to extract frames")
                 return {"sample_id": sample_id, "skipped": True}
 
         client = create_model_client(args.model)
@@ -780,31 +780,31 @@ def run(args):
                 # Check whether the output is valid
                 if is_valid_html_output(code):
                     if attempt > 1:
-                        print(f"\n✅ 第 {attempt} 次重试成功")
+                        print(f"\n✅ Retry attempt {attempt} succeeded")
                     break
                 else:
-                    last_error = f"输出格式无效 (长度={len(code)}, 缺少 HTML 结构)"
-                    print(f"\n⚠️  第 {attempt}/{max_retries} 次尝试: {last_error}")
+                    last_error = f"Invalid output format (length={len(code)}, missing HTML structure)"
+                    print(f"\n⚠️  Attempt {attempt}/{max_retries}: {last_error}")
                     if attempt < max_retries:
-                        print(f"   {retry_delay} 秒后重试...")
+                        print(f"   Retrying in {retry_delay} seconds...")
                         time.sleep(retry_delay)
 
             except Exception as e:
                 last_error = str(e)
-                print(f"\n⚠️  第 {attempt}/{max_retries} 次尝试失败: {last_error}")
+                print(f"\n⚠️  Attempt {attempt}/{max_retries} failed: {last_error}")
                 # Print the full error details
                 if hasattr(e, 'response'):
-                    print(f"   完整响应: {e.response}")
+                    print(f"   Full response: {e.response}")
                 if hasattr(e, 'body'):
-                    print(f"   响应体: {e.body}")
+                    print(f"   Response body: {e.body}")
                 print(f"   Traceback:\n{traceback.format_exc()}")
                 if attempt < max_retries:
-                    print(f"   {retry_delay} 秒后重试...")
+                    print(f"   Retrying in {retry_delay} seconds...")
                     time.sleep(retry_delay)
 
         # All retries failed
         if not code or not is_valid_html_output(code):
-            error_msg = f"所有 {max_retries} 次尝试均失败: {last_error}"
+            error_msg = f"All {max_retries} attempts failed: {last_error}"
             print(f"\n❌ {error_msg}")
             raise RuntimeError(error_msg)
 
@@ -812,13 +812,13 @@ def run(args):
             output_path = os.path.join(output_dir, f"{sample_id}.html")
             with open(output_path, "w", encoding="utf-8") as output_file:
                 output_file.write(code)
-            print(f"\n✅ 已写入: {output_path}")
+            print(f"\n✅ Written to: {output_path}")
             return {"sample_id": sample_id, "output_path": output_path}
 
         if args.output:
             with open(args.output, "w", encoding="utf-8") as output_file:
                 output_file.write(code)
-            print(f"\n✅ 已写入: {args.output}")
+            print(f"\n✅ Written to: {args.output}")
             return {"sample_id": sample_id, "output_path": args.output}
         else:
             print("\n\n===== Extracted Front-End Code =====\n")
@@ -827,7 +827,7 @@ def run(args):
 
     if not is_batch:
         if args.resume and args.output and is_completed_output(args.output):
-            print(f"⏭️  已存在结果，跳过单样本: {args.output}")
+            print(f"⏭️  Output already exists, skipping single sample: {args.output}")
             return
         process_item(video_items[0])
         return
@@ -842,14 +842,14 @@ def run(args):
                 skipped_count += 1
                 continue
             pending_items.append(item)
-        print(f"♻️  断点续跑: 已跳过 {skipped_count} 条，待处理 {len(pending_items)} 条")
+        print(f"♻️  Resume mode: skipped {skipped_count} items, {len(pending_items)} remaining")
 
     if not pending_items:
-        print("✅ 全部样本已存在输出，无需继续推理")
+        print("✅ Outputs already exist for all samples; no further inference is needed")
         return
 
     worker_count = max(1, int(args.workers))
-    print(f"🚀 并发推理 workers={worker_count}, 样本数={len(pending_items)}")
+    print(f"🚀 Concurrent inference workers={worker_count}, sample_count={len(pending_items)}")
     failures = []
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
@@ -863,29 +863,29 @@ def run(args):
                 future.result()
             except Exception as exc:
                 failures.append((sample_id, str(exc)))
-                print(f"\n❌ 样本 {sample_id} 失败: {exc}")
+                print(f"\n❌ Sample {sample_id} failed: {exc}")
 
     if failures:
-        print("\n⚠️ 失败样本汇总:")
+        print("\n⚠️ Failed sample summary:")
         for sample_id, message in failures:
             print(f"- {sample_id}: {message}")
 def build_arg_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--video", required=True, help="输入视频文件路径，或包含样本索引的 JSON 文件路径")
-    parser.add_argument("--model", default="gemini-3-flash-native", help="使用的模型")
-    parser.add_argument("--config", default=DEFAULT_GENERATION_CONFIG_PATH, help="模型生成参数配置 JSON 路径")
-    parser.add_argument("--fps", type=int, default=1, help="抽帧帧率")
-    parser.add_argument("--video_fps", type=int, default=2, help="视频输入采样 fps（Qwen video_url）")
-    parser.add_argument("--max_frames", type=int, default=100, help="最大帧数")
-    parser.add_argument("--workers", type=int, default=1, help="并发 worker 数（仅批量模式有效）")
-    parser.add_argument("--limit", type=int, default=0, help="JSON 模式下仅处理前 N 条（0 表示不限制）")
-    parser.add_argument("--print_prompt_example", action="store_true", help="打印最终 prompt 示例并退出（不请求模型）")
-    parser.add_argument("--prompt_example_output", help="将 prompt 示例文本写入文件")
-    parser.add_argument("--output", help="输出前端代码的文件路径")
-    parser.add_argument("--resume", dest="resume", action="store_true", default=True, help="断点续跑，跳过已存在输出文件")
-    parser.add_argument("--no_resume", dest="resume", action="store_false", help="关闭断点续跑，强制重跑全部样本")
-    parser.add_argument("--max_retries", type=int, default=DEFAULT_MAX_RETRIES, help=f"模型输出格式无效时的最大重试次数（默认 {DEFAULT_MAX_RETRIES}）")
-    parser.add_argument("--retry_delay", type=int, default=DEFAULT_RETRY_DELAY, help=f"重试间隔秒数（默认 {DEFAULT_RETRY_DELAY}）")
+    parser.add_argument("--video", required=True, help="Input video file path, or a JSON file path containing sample indices")
+    parser.add_argument("--model", default="gemini-3-flash-native", help="Model to use")
+    parser.add_argument("--config", default=DEFAULT_GENERATION_CONFIG_PATH, help="Path to the JSON config file for generation parameters")
+    parser.add_argument("--fps", type=int, default=1, help="Frame extraction rate")
+    parser.add_argument("--video_fps", type=int, default=2, help="Video input sampling fps (Qwen video_url)")
+    parser.add_argument("--max_frames", type=int, default=100, help="Maximum number of frames")
+    parser.add_argument("--workers", type=int, default=1, help="Number of concurrent workers (batch mode only)")
+    parser.add_argument("--limit", type=int, default=0, help="Process only the first N entries in JSON mode (0 means no limit)")
+    parser.add_argument("--print_prompt_example", action="store_true", help="Print the final prompt example and exit without calling the model")
+    parser.add_argument("--prompt_example_output", help="Write the prompt example text to a file")
+    parser.add_argument("--output", help="Output file path for the generated frontend code")
+    parser.add_argument("--resume", dest="resume", action="store_true", default=True, help="Resume mode; skip output files that already exist")
+    parser.add_argument("--no_resume", dest="resume", action="store_false", help="Disable resume mode and rerun all samples")
+    parser.add_argument("--max_retries", type=int, default=DEFAULT_MAX_RETRIES, help=f"Maximum retry count when the model output format is invalid (default: {DEFAULT_MAX_RETRIES})")
+    parser.add_argument("--retry_delay", type=int, default=DEFAULT_RETRY_DELAY, help=f"Retry delay in seconds (default: {DEFAULT_RETRY_DELAY})")
     return parser
 
 
@@ -894,5 +894,5 @@ if __name__ == "__main__":
         args = build_arg_parser().parse_args()
         run(args)
     except Exception as exc:
-        print(f"❌ 运行失败: {exc}")
+        print(f"❌ Run failed: {exc}")
         sys.exit(1)

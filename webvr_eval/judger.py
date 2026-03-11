@@ -57,7 +57,7 @@ def _extract_idx_from_filename(path: Path) -> str:
 
 def _load_rubric_map(rubric_jsonl: Path) -> dict[str, Any]:
     if not rubric_jsonl.exists():
-        raise FileNotFoundError(f"rubric JSONL 不存在: {rubric_jsonl}")
+        raise FileNotFoundError(f"Rubric JSONL does not exist: {rubric_jsonl}")
 
     rubric_map: dict[str, Any] = {}
     invalid_lines = 0
@@ -95,18 +95,18 @@ def _load_rubric_map(rubric_jsonl: Path) -> dict[str, Any]:
 def _create_model_client(model: str):
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        raise RuntimeError("缺少环境变量 OPENAI_API_KEY")
+        raise RuntimeError("Missing environment variable OPENAI_API_KEY")
 
     if "gemini" in model.lower():
         if genai is None or types is None:
-            raise RuntimeError("当前环境未安装 google-genai，无法请求 Gemini 模型")
+            raise RuntimeError("google-genai is not installed in the current environment; Gemini requests are unavailable")
         http_options = {"api_version": "v1alpha"}
         gemini_base_url = os.environ.get("GEMINI_BASE_URL")
         if gemini_base_url:
             http_options["base_url"] = gemini_base_url
         return genai.Client(http_options=http_options, api_key=api_key)
     if OpenAI is None:
-        raise RuntimeError("当前环境未安装 openai，无法请求非 Gemini 模型")
+        raise RuntimeError("openai is not installed in the current environment; non-Gemini requests are unavailable")
     client_kwargs = {"api_key": api_key}
     openai_base_url = os.environ.get("OPENAI_BASE_URL")
     if openai_base_url:
@@ -259,7 +259,7 @@ def _strip_code_fence(text: str) -> str:
 def _parse_json_payload(text: str) -> Any:
     content = _strip_code_fence(text)
     if not content:
-        raise ValueError("评审结果为空")
+        raise ValueError("The evaluation result is empty")
 
     try:
         return json.loads(content)
@@ -276,7 +276,7 @@ def _parse_json_payload(text: str) -> Any:
         except Exception:
             continue
 
-    raise ValueError("无法从模型输出中解析 JSON")
+    raise ValueError("Failed to parse JSON from the model output")
 
 
 def _extract_evaluation_content(text: str) -> str:
@@ -649,7 +649,7 @@ def _evaluate_single_html(
 def _generate_summary_from_existing(output_jsonl: Path, rubric_jsonl: Path, html_dir: Path, args):
     """Generate a summary from an existing output_jsonl file."""
     if not output_jsonl.exists():
-        raise FileNotFoundError(f"输出文件不存在: {output_jsonl}")
+        raise FileNotFoundError(f"Output file does not exist: {output_jsonl}")
 
     rubric_map = _load_rubric_map(rubric_jsonl)
 
@@ -801,7 +801,7 @@ def run(args):
         return
 
     if not html_dir.exists() or not html_dir.is_dir():
-        raise NotADirectoryError(f"html_dir 不是有效目录: {html_dir}")
+        raise NotADirectoryError(f"html_dir is not a valid directory: {html_dir}")
 
     rubric_map = _load_rubric_map(rubric_jsonl)
     html_paths = sorted(html_dir.glob("*.html"), key=lambda p: p.name)
@@ -811,13 +811,13 @@ def run(args):
     # Preview prompt mode
     if getattr(args, "preview_prompt", False):
         if not html_paths:
-            print("[preview] 没有找到 HTML 文件")
+            print("[preview] No HTML files were found")
             return
         html_path = html_paths[0]
         idx = _extract_idx_from_filename(html_path)
         rubric = rubric_map.get(idx)
         if not rubric:
-            print(f"[preview] idx={idx} 没有找到 rubric，尝试下一个...")
+            print(f"[preview] No rubric found for idx={idx}; trying the next one...")
             for hp in html_paths[1:]:
                 idx = _extract_idx_from_filename(hp)
                 rubric = rubric_map.get(idx)
@@ -825,7 +825,7 @@ def run(args):
                     html_path = hp
                     break
         if not rubric:
-            print("[preview] 所有样本都没有 rubric")
+            print("[preview] No rubric was found for any sample")
             return
 
         use_v2 = getattr(args, "prompt_v2", False)
@@ -857,16 +857,16 @@ def run(args):
         if use_video or video_only:
             if video_path:
                 video_size_mb = video_path.stat().st_size / (1024 * 1024)
-                print(f"[preview] video_path={video_path} ({video_size_mb:.2f} MB) ✅ 视频已找到")
+                print(f"[preview] video_path={video_path} ({video_size_mb:.2f} MB) ✅ video found")
             else:
                 video_dir = Path(args.video_dir) if getattr(args, "video_dir", None) else html_path.parent
                 expected_path = video_dir / f"{idx}_recorded.webm"
                 print(f"[preview] video_path=NOT FOUND ❌")
-                print(f"[preview] 期望路径: {expected_path}")
+                print(f"[preview] expected path: {expected_path}")
                 if video_only:
-                    print(f"[preview] ⚠️  video_only 模式必须有视频！")
+                    print(f"[preview] ⚠️  video_only mode requires a video")
                 else:
-                    print(f"[preview] ⚠️  视频未找到，将使用纯文本模式的 prompt")
+                    print(f"[preview] ⚠️  Video not found; the prompt will fall back to text-only mode")
         print(f"[preview] prompt_mode={prompt_mode}")
         print("\n" + "=" * 60)
         print("SYSTEM PROMPT:")
@@ -1152,50 +1152,50 @@ def run(args):
 
 def build_parser():
     parser = argparse.ArgumentParser(
-        description="遍历 HTML 目录并基于 rubric 逐条输出 checks。",
+        description="Traverse the HTML directory and output checks for each file based on the rubric.",
     )
     parser.add_argument(
         "--html_dir",
         required=True,
-        help="待评审 HTML 文件目录（文件名应为 idx.html）",
+        help="Directory containing the HTML files to evaluate (filenames should be idx.html)",
     )
     parser.add_argument(
         "--rubric_jsonl",
         required=True,
-        help="包含 idx 与 rubric 字段的 JSONL 文件路径",
+        help="Path to the JSONL file containing idx and rubric fields",
     )
     parser.add_argument(
         "--output_jsonl",
         default="judger_results.jsonl",
-        help="评审结果输出 JSONL",
+        help="Output JSONL path for evaluation results",
     )
     parser.add_argument(
         "--model",
         default=DEFAULT_MODEL,
-        help="评审模型名称，例如 gemini-3-pro-native / kimi-k2.5-thinking",
+        help="Evaluation model name, for example gemini-3-pro-native / kimi-k2.5-thinking",
     )
     parser.add_argument("--max_tokens", type=int, default=64800)
     parser.add_argument("--temperature", type=float, default=1.0)
-    parser.add_argument("--request_delay", type=float, default=0.2, help="请求间隔秒数")
+    parser.add_argument("--request_delay", type=float, default=0.2, help="Delay between requests in seconds")
     parser.add_argument("--max_retries", type=int, default=3)
     parser.add_argument("--retry_delay", type=float, default=2.0)
-    parser.add_argument("--limit", type=int, default=0, help="仅处理前 N 个 html，0 表示全部")
-    parser.add_argument("--resume", action="store_true", help="从 output_jsonl 里跳过已处理 idx")
-    parser.add_argument("--workers", type=int, default=8, help="并发 worker 数")
-    parser.add_argument("--use_video", action="store_true", help="同时输入 idx_recorded.webm 视频给 judger")
-    parser.add_argument("--video_dir", help="视频文件目录（默认使用 html_dir）")
-    parser.add_argument("--prompt_v2", action="store_true", help="使用 V2 提示词，rubric 放在 user_prompt 中")
-    parser.add_argument("--video_only", action="store_true", help="只用视频+rubric 判断，不使用 HTML 代码")
-    parser.add_argument("--preview_prompt", action="store_true", help="预览第一个样本的提示词后退出，不实际运行")
+    parser.add_argument("--limit", type=int, default=0, help="Process only the first N HTML files; 0 means all")
+    parser.add_argument("--resume", action="store_true", help="Skip idx values that are already present in output_jsonl")
+    parser.add_argument("--workers", type=int, default=8, help="Number of concurrent workers")
+    parser.add_argument("--use_video", action="store_true", help="Also provide the idx_recorded.webm video to the judger")
+    parser.add_argument("--video_dir", help="Directory containing video files (defaults to html_dir)")
+    parser.add_argument("--prompt_v2", action="store_true", help="Use the V2 prompt template, placing the rubric in user_prompt")
+    parser.add_argument("--video_only", action="store_true", help="Judge using only video+rubric, without HTML code")
+    parser.add_argument("--preview_prompt", action="store_true", help="Preview the first sample prompt and exit without running evaluation")
     parser.add_argument(
         "--all_dataset_path",
         default="",
-        help="完整数据集 JSON 文件路径，用于对照 idx，缺失的 idx 记为 0 分",
+        help="Path to the full dataset JSON file, used to compare idx values and assign missing idx values a score of 0",
     )
     parser.add_argument(
         "--summary_only",
         action="store_true",
-        help="仅基于现有的 output_jsonl 文件生成 summary，不运行评审流程",
+        help="Generate the summary only from the existing output_jsonl file without running evaluation",
     )
     return parser
 
