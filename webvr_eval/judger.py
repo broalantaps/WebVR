@@ -159,8 +159,6 @@ def _infer_text(
             video_bytes = video_path.read_bytes()
             suffix = video_path.suffix.lower()
             mime_type = VIDEO_MIME_TYPES.get(suffix, "video/webm")
-            # video_size_mb = len(video_bytes) / (1024 * 1024)
-            # print(f"    📹 Gemini video input: {video_path.name} ({video_size_mb:.2f} MB, {mime_type})")
             contents.append(types.Part.from_bytes(data=video_bytes, mime_type=mime_type))
         contents.append(types.Part.from_text(text=user_prompt))
         stream = client.models.generate_content_stream(
@@ -182,8 +180,6 @@ def _infer_text(
         suffix = video_path.suffix.lower()
         mime_type = VIDEO_MIME_TYPES.get(suffix, "video/webm")
         video_bytes = video_path.read_bytes()
-        # video_size_mb = len(video_bytes) / (1024 * 1024)
-        # print(f"    📹 Kimi video input: {video_path.name} ({video_size_mb:.2f} MB, {mime_type})")
         video_base64 = base64.b64encode(video_bytes).decode("utf-8")
         user_content = [
             {"type": "text", "text": user_prompt},

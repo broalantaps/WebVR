@@ -469,7 +469,6 @@ def infer_raw_content(
                 messages=[{"role": "user", "content": user_content}],
                 max_tokens=generation_params["max_tokens"],
                 reasoning_effort="medium",
-                # stream=True,
             )
             raw_content = response.choices[0].message.content
             return raw_content
@@ -546,32 +545,6 @@ def infer_raw_content(
                     print(delta_content, end="", flush=True)
         return raw_content
 
-    # content = [{"type": "text", "text": "Analyze the video and output the web page code."}]
-    # if image_resource_content:
-    #     content.extend(image_resource_content)
-    # for frame in frames:
-    #     content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{encode_image_to_base64(frame)}"}})
-
-    # response = client.chat.completions.create(
-    #     model=model,
-    #     messages=[
-    #         {"role": "system", "content": REPLICATE_VIDEO_PROMPT},
-    #         {"role": "user", "content": content},
-    #     ],
-    #     max_tokens=generation_params["max_tokens"],
-    #     temperature=generation_params["temperature"],
-    #     top_p=generation_params["top_p"],
-    #     stream=True,
-    # )
-
-    # raw_content = ""
-    # for chunk in response:
-    #     if chunk.choices:
-    #         delta_content = chunk.choices[0].delta.content
-    #         if delta_content:
-    #             raw_content += delta_content
-    #             print(delta_content, end="", flush=True)
-    # return raw_content
     raise ValueError("Invalid model")
 
 
