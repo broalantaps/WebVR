@@ -1,6 +1,19 @@
 # WebVR
 
-WebVR is a lightweight benchmark workspace for webpage recreation from videos. This repository contains self-contained inference and judging entrypoints that can be run from one place.
+WebVR is a benchmark for webpage recreation from videos with multimodal large language models.
+
+This repository hosts the evaluation pipeline for the paper:
+
+**WebVR: Benchmarking Multimodal LLMs for WebPage Recreation from Videos via Human-Aligned Visual Rubrics**
+
+- Homepage: https://webvr-benchmark.github.io/
+- Hugging Face dataset: https://huggingface.co/datasets/BroAlanTaps/WebVR
+
+The codebase provides self-contained entrypoints for:
+
+- webpage generation from video inputs
+- rubric-based evaluation of generated HTML
+- optional video-assisted judging for rendered webpages
 
 ## Repository layout
 
@@ -18,7 +31,7 @@ WebVR/
     └── prompts.py
 ```
 
-## What was moved here
+## Components
 
 - `webvr_eval/inference.py`
   Generates webpage code from video inputs or an index JSON file.
@@ -63,7 +76,7 @@ export GEMINI_BASE_URL=...
 - a single video file via `--video /path/to/sample.webm`
 - a JSON index file via `--video /path/to/input_all_image_urls.json`
 
-The batch JSON mode is the main workflow. The JSON should map each sample id to its metadata. The current implementation expects each sample to resolve to a source video and optionally aligned image assets.
+The batch JSON mode is the main workflow. The JSON should map each sample id to its metadata. Each sample is expected to resolve to a source video and may optionally include aligned image assets.
 
 Run directly:
 
@@ -143,6 +156,7 @@ Useful flags:
   Use the V2 judging prompt.
 - `--summary_only`
   Recompute the summary JSON from an existing output JSONL.
+
 ## Input and output conventions
 
 Inference outputs one HTML file per sample under the directory given by `--output`.
@@ -160,5 +174,6 @@ Judger outputs:
 
 ## Notes
 
-- This repo packages the evaluation code only.
-- Datasets and generated outputs can stay outside the repo and be referenced by absolute or relative paths.
+- This repository focuses on the evaluation and generation pipeline rather than dataset storage.
+- Dataset files and generated outputs can remain outside the repository and be referenced by absolute or relative paths.
+- The main public benchmark resources are the project homepage and the Hugging Face dataset linked above.
