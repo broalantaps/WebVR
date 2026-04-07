@@ -9,21 +9,30 @@ WebVR/
 ├── configs/
 │   └── model_generation_config.json
 ├── scripts/
+│   ├── capture_video.sh
 │   ├── inference.sh
 │   └── judge_html_video.sh
 └── webvr_eval/
+    ├── capture_video.py
     ├── __init__.py
     ├── inference.py
     ├── judger.py
-    └── prompts.py
+    ├── prompts.py
+    └── record_html_dir.py
 ```
 
 ## What was moved here
 
 - `webvr_eval/inference.py`
   Generates webpage code from video inputs or an index JSON file.
+- `webvr_eval/capture_video.py`
+  Records a local HTML page into `idx_recorded.webm` or `idx_recorded.mp4`.
+- `webvr_eval/record_html_dir.py`
+  Batch entrypoint for recording every `idx.html` in an output directory.
 - `webvr_eval/judger.py`
   Scores generated HTML against rubric JSONL files, optionally using recorded webpage videos.
+- `scripts/capture_video.sh`
+  Thin wrapper for batch webpage recording.
 - `scripts/inference.sh`
   Thin wrapper for batch inference.
 - `scripts/judge_html_video.sh`
@@ -40,7 +49,8 @@ Python 3.10+ is recommended.
 Install the Python dependencies used by the two entrypoints:
 
 ```bash
-pip install openai google-genai httpx opencv-python numpy tqdm
+pip install openai google-genai httpx opencv-python numpy tqdm playwright
+playwright install chromium
 ```
 
 Set the API key before running either pipeline:
@@ -98,6 +108,57 @@ Useful flags:
   Save that prompt preview to a file.
 - `--resume` / `--no_resume`
   Control whether existing outputs are skipped.
+
+## Recording HTML to webpage videos
+
+Recording is a separate step after inference. The recorder expects a directory of HTML files named like `idx.html` and writes videos next to them as `idx_recorded.webm` by default.
+
+Run directly:
+
+```bash
+cd /path/to/WebVR
+
+python3 -m webvr_eval.record_html_dir \
+  --html_dir ./outputs/inference/gemini-3-flash-native \
+  --workers 8 \
+  --test_hover \
+  --record_format webm \
+  --skip_existing
+```
+
+Or use the wrapper:
+
+```bash
+cd /path/to/WebVR
+
+HTML_DIR=./outputs/inference/gemini-3-flash-native \
+WORKERS=8 \
+bash scripts/capture_video.sh
+```
+
+Useful flags:
+
+- `--record_format webm|mp4`
+  Keep the original WebM recording or transcode to MP4.
+- `--skip_existing`
+  Skip samples that already have `idx_recorded.webm` or `idx_recorded.mp4`.
+- `--test_hover`
+  Run a lightweight hover pass across common interactive elements while recording.
+- `--headed`
+  Show the browser window while recording.
+- `--limit`
+  Record only the first N HTML files in the directory.
+
+For single-file debugging:
+
+```bash
+cd /path/to/WebVR
+
+python3 -m webvr_eval.capture_video \
+  --html_path ./outputs/inference/gemini-3-flash-native/101.html \
+  --test_hover \
+  --record_format webm
+```
 
 ## Judging HTML + Video
 
